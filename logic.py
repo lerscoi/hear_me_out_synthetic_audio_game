@@ -138,6 +138,7 @@ def generate_trial_pair(bonafide_list: List[Dict], spoof_list: List[Dict]) -> Op
     s_pipeline = s_entry.get('pipeline', '')
     s_model = s_entry.get('tts_model', '')
     b_name = b_entry.get('audio_name', '')
+    b_pipeline = b_entry.get('pipeline', '')
     s_name = s_entry.get('audio_name', '')
 
     if random.random() < 0.5:
@@ -146,6 +147,7 @@ def generate_trial_pair(bonafide_list: List[Dict], spoof_list: List[Dict]) -> Op
             'B': (s_lbl, s_audio, s_pipeline),
             'real': 'A',
             'bonafide_id': b_name,
+            'bonafide_pipeline': b_pipeline,
             'spoof_id': s_name,
             'spoof_model': s_model,
             'spoof_pipeline': s_pipeline,
@@ -156,6 +158,7 @@ def generate_trial_pair(bonafide_list: List[Dict], spoof_list: List[Dict]) -> Op
             'B': ('bonafide', b_audio),
             'real': 'B',
             'bonafide_id': b_name,
+            'bonafide_pipeline': b_pipeline,
             'spoof_id': s_name,
             'spoof_model': s_model,
             'spoof_pipeline': s_pipeline,
@@ -185,6 +188,7 @@ def handle_answer(state: GameState, chosen: str) -> None:
         'fake_pipeline':  pair.get('spoof_pipeline', ''),
         'fake_model':     pair.get('spoof_model', ''),
         'bonafide_id':    pair.get('bonafide_id', ''),
+        'bonafide_pipeline': pair.get('bonafide_pipeline', ''),
         'spoof_id':       pair.get('spoof_id', ''),
     })
 
