@@ -61,19 +61,16 @@ def parse_id_mapping(csv_path: Path) -> Tuple[List[Dict], List[Dict]]:
 
     return bonafide, spoof
 
-
-def find_audio_file(export_dir: Path, obf_id: str, split: str) -> Optional[Path]:
-    """Locate audio file for a given ID in train/test folders."""
+def find_audio_file(export_dir: Path, audio_name: str) -> Optional[Path]:
+    """Locate audio file."""
     extensions = ['.wav', '.WAV', '.flac', '.mp3']
 
-    for s in (split, 'train', 'test'):
-        for ext in extensions:
-            p = export_dir / AUDIO_SUBDIR / s / (obf_id + ext)
-            if p.exists():
-                return p
+    for ext in extensions:
+        p = export_dir / AUDIO_SUBDIR / (audio_name + ext)
+        if p.exists():
+            return p
 
     return None
-
 
 def load_audio_bytes(path: Path) -> Optional[bytes]:
     """Load audio file and return raw bytes buffer."""
@@ -87,7 +84,6 @@ def load_audio_bytes(path: Path) -> Optional[bytes]:
         return buf.getvalue()
     except Exception:
         return None
-
 
 def load_database(export_dir: Path) -> Tuple[bool, List[Dict], List[Dict]]:
     """
@@ -111,13 +107,13 @@ def load_database(export_dir: Path) -> Tuple[bool, List[Dict], List[Dict]]:
 
     bonafide_valid = []
     for e in bonafide_raw:
-        p = find_audio_file(export_dir, e['obfuscated_id'], e.get('split', 'train'))
+        p = find_audio_file(export_dir, e['audio_name'])
         if p:
             bonafide_valid.append({**e, 'path': p})
 
     spoof_valid = []
     for e in spoof_raw:
-        p = find_audio_file(export_dir, e['obfuscated_id'], e.get('split', 'train'))
+        p = find_audio_file(export_dir, e['audio_name'])
         if p:
             spoof_valid.append({**e, 'path': p})
 
@@ -128,7 +124,6 @@ def load_database(export_dir: Path) -> Tuple[bool, List[Dict], List[Dict]]:
 def generate_trial_pair(bonafide_list: List[Dict], spoof_list: List[Dict]) -> Optional[Dict[str, Any]]:
     """
     Generate a new pair of audio clips for a trial.
-    Pair dict includes bonafide_id and spoof_id for per-round logging.
     """
     b_entry = random.choice(bonafide_list)
     s_entry = random.choice(spoof_list)
@@ -141,24 +136,29 @@ def generate_trial_pair(bonafide_list: List[Dict], spoof_list: List[Dict]) -> Op
 
     s_lbl = s_entry.get('effective_label', 'synthetic')
     s_pipeline = s_entry.get('pipeline', '')
-    b_id = b_entry.get('obfuscated_id', '')
-    s_id = s_entry.get('obfuscated_id', '')
+    s_model = s_entry.get('tts_model', '')
+    b_name = b_entry.get('audio_name', '')
+    s_name = s_entry.get('audio_name', '')
 
     if random.random() < 0.5:
         return {
             'A': ('bonafide', b_audio),
             'B': (s_lbl, s_audio, s_pipeline),
             'real': 'A',
-            'bonafide_id': b_id,
-            'spoof_id': s_id,
+            'bonafide_id': b_name,
+            'spoof_id': s_name,
+            'spoof_model': s_model,
+            'spoof_pipeline': s_pipeline,
         }
     else:
         return {
             'A': (s_lbl, s_audio, s_pipeline),
             'B': ('bonafide', b_audio),
             'real': 'B',
-            'bonafide_id': b_id,
-            'spoof_id': s_id,
+            'bonafide_id': b_name,
+            'spoof_id': s_name,
+            'spoof_model': s_model,
+            'spoof_pipeline': s_pipeline,
         }
 
 def handle_answer(state: GameState, chosen: str) -> None:
@@ -173,19 +173,19 @@ def handle_answer(state: GameState, chosen: str) -> None:
     state.answer_correct = correct
     state.answer_which = chosen
     state.trials += 1
-
-    # Per-round data
     fake_letter = 'B' if pair['real'] == 'A' else 'A'
-    fake_entry = pair[fake_letter]
+    fake_entry  = pair[fake_letter]
+
     state.rounds.append({
-        'round': state.trials,
-        'real_letter': pair['real'],
-        'user_choice': chosen,
-        'correct': correct,
-        'fake_label': fake_entry[0],
-        'fake_pipeline': fake_entry[2] if len(fake_entry) > 2 else '',
-        'bonafide_id': pair.get('bonafide_id', ''),
-        'spoof_id': pair.get('spoof_id', ''),
+        'round':          state.trials,
+        'real_letter':    pair['real'],
+        'user_choice':    chosen,
+        'correct':        correct,
+        'fake_label':     fake_entry[0],
+        'fake_pipeline':  pair.get('spoof_pipeline', ''),
+        'fake_model':     pair.get('spoof_model', ''),
+        'bonafide_id':    pair.get('bonafide_id', ''),
+        'spoof_id':       pair.get('spoof_id', ''),
     })
 
     if correct:
@@ -207,7 +207,6 @@ def submit_leaderboard_entry(state: GameState) -> None:
     }
     state.leaderboard.append(entry)
     state.leaderboard.sort(key=lambda x: (-x['score'], -x['acc']))
-
 
 def reset_game_state(state: GameState) -> None:
     """Reset game variables for a new round, including a fresh session ID."""

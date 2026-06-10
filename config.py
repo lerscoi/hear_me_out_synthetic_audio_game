@@ -4,7 +4,7 @@ Contains all CSS themes, constants, and static text.
 """
 # Constants
 DEFAULT_LIVES = 3
-EXPORT_DIR_DEFAULT = "."
+EXPORT_DIR_DEFAULT = "game_database"
 CSV_LABEL_FILE = "labels/id_mapping.csv"
 CSV_FALLBACK_FILE = "id_mapping.csv"
 AUDIO_SUBDIR = "audio"
